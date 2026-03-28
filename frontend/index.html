@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>isnad Trust Oracle — Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: #0a0a0f; color: #e0e0e0; min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 2rem; text-align: center; border-bottom: 1px solid #2a2a4a; }
+        .header h1 { font-size: 2rem; background: linear-gradient(90deg, #a78bfa, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header p { color: #888; margin-top: 0.5rem; }
+        .stats-bar { display: flex; justify-content: center; gap: 2rem; padding: 1.5rem; background: #111118; }
+        .stat { text-align: center; }
+        .stat-value { font-size: 1.5rem; font-weight: 700; color: #a78bfa; }
+        .stat-label { font-size: 0.75rem; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+        .container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        .search-box { width: 100%; padding: 1rem 1.5rem; background: #16161e; border: 1px solid #2a2a4a; border-radius: 12px; color: #e0e0e0; font-size: 1rem; outline: none; transition: border 0.2s; }
+        .search-box:focus { border-color: #7c3aed; }
+        .card { background: #16161e; border: 1px solid #2a2a4a; border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .agent-name { font-size: 1.25rem; font-weight: 600; }
+        .tier-badge { padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .tier-unknown { background: #333; color: #888; }
+        .tier-emerging { background: #1e3a2f; color: #4ade80; }
+        .tier-established { background: #1e2a3f; color: #60a5fa; }
+        .tier-verified { background: #2d1e3f; color: #a78bfa; }
+        .dimensions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 1rem 0; }
+        .dim { text-align: center; }
+        .dim-bar { height: 6px; background: #2a2a4a; border-radius: 3px; margin-top: 0.5rem; overflow: hidden; }
+        .dim-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+        .dim-fill.prov { background: #f59e0b; }
+        .dim-fill.track { background: #10b981; }
+        .dim-fill.pres { background: #3b82f6; }
+        .dim-fill.endor { background: #8b5cf6; }
+        .dim-label { font-size: 0.7rem; color: #666; text-transform: uppercase; }
+        .dim-value { font-size: 1.1rem; font-weight: 600; margin-top: 0.25rem; }
+        .overall-score { font-size: 3rem; font-weight: 800; text-align: center; margin: 1rem 0; }
+        .cert-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #2a2a4a; }
+        .cert-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: #1e2a3f; border-radius: 8px; }
+        .cert-icon { font-size: 1.2rem; }
+        .evidence { font-family: monospace; font-size: 0.7rem; color: #555; margin-top: 0.5rem; word-break: break-all; }
+        .footer { text-align: center; padding: 2rem; color: #444; font-size: 0.8rem; }
+        .footer a { color: #7c3aed; text-decoration: none; }
+        .how-it-works { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 2rem; }
+        .step { text-align: center; padding: 1.5rem; background: #16161e; border: 1px solid #2a2a4a; border-radius: 12px; }
+        .step-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .step-title { font-weight: 600; margin-bottom: 0.5rem; }
+        .step-desc { font-size: 0.85rem; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔮 isnad Trust Oracle</h1>
+        <p>On-chain trust scoring for AI agents on Solana</p>
+    </div>
+    
+    <div class="stats-bar">
+        <div class="stat"><div class="stat-value" id="totalScores">—</div><div class="stat-label">Agents Scored</div></div>
+        <div class="stat"><div class="stat-value" id="totalCerts">—</div><div class="stat-label">Certifications</div></div>
+        <div class="stat"><div class="stat-value">devnet</div><div class="stat-label">Network</div></div>
+    </div>
+
+    <div class="container">
+        <input type="text" class="search-box" id="searchInput" placeholder="🔍 Search agent by ID (e.g. gendolf, bro-agent)" />
+        
+        <div id="resultCard" style="display:none;" class="card">
+            <div class="card-header">
+                <span class="agent-name" id="agentName"></span>
+                <span class="tier-badge" id="tierBadge"></span>
+            </div>
+            <div class="overall-score" id="overallScore"></div>
+            <div class="dimensions">
+                <div class="dim">
+                    <div class="dim-label">Provenance</div>
+                    <div class="dim-value" id="dimProv">—</div>
+                    <div class="dim-bar"><div class="dim-fill prov" id="barProv" style="width:0%"></div></div>
+                </div>
+                <div class="dim">
+                    <div class="dim-label">Track Record</div>
+                    <div class="dim-value" id="dimTrack">—</div>
+                    <div class="dim-bar"><div class="dim-fill track" id="barTrack" style="width:0%"></div></div>
+                </div>
+                <div class="dim">
+                    <div class="dim-label">Presence</div>
+                    <div class="dim-value" id="dimPres">—</div>
+                    <div class="dim-bar"><div class="dim-fill pres" id="barPres" style="width:0%"></div></div>
+                </div>
+                <div class="dim">
+                    <div class="dim-label">Endorsements</div>
+                    <div class="dim-value" id="dimEndor">—</div>
+                    <div class="dim-bar"><div class="dim-fill endor" id="barEndor" style="width:0%"></div></div>
+                </div>
+            </div>
+            <div class="cert-section" id="certSection" style="display:none;">
+                <div class="cert-badge">
+                    <span class="cert-icon">🛡️</span>
+                    <span id="certLevel">—</span>
+                    <span id="certVectors">—</span>
+                </div>
+            </div>
+            <div class="evidence" id="evidenceHash"></div>
+        </div>
+
+        <div class="how-it-works">
+            <div class="step">
+                <div class="step-icon">📊</div>
+                <div class="step-title">Score</div>
+                <div class="step-desc">Multi-dimensional trust analysis: provenance, track record, presence, endorsements</div>
+            </div>
+            <div class="step">
+                <div class="step-icon">🛡️</div>
+                <div class="step-title">Certify</div>
+                <div class="step-desc">Red-team adversarial testing: 37 attack vectors across 3 tiers of difficulty</div>
+            </div>
+            <div class="step">
+                <div class="step-icon">⛓️</div>
+                <div class="step-title">Verify</div>
+                <div class="step-desc">On-chain proof: any Solana program can query trust scores in a single call</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Built by <a href="https://isnad.site">isnad.site</a> for <a href="https://colosseum.com">Solana Frontier Hackathon</a></p>
+        <p style="margin-top:0.5rem;">Program: BhG84286N1HTG6cRmASZVNQNtFd7K98BsBrhfjYc7H31</p>
+    </div>
+
+    <script>
+        // Demo data (will be replaced with live Solana RPC queries)
+        const DEMO_AGENTS = {
+            gendolf: { overall: 55, tier: 'ESTABLISHED', provenance: 60, track_record: 50, presence: 45, endorsements: 40, cert: { level: 'ADVANCED', tested: 37, blocked: 37 }, evidence: 'cd00000000000000000000000000000000000000000000000000000000000000' },
+            'bro-agent': { overall: 25, tier: 'EMERGING', provenance: 30, track_record: 20, presence: 25, endorsements: 15, cert: null, evidence: 'ab00000000000000000000000000000000000000000000000000000000000000' },
+        };
+
+        const tierColors = { UNKNOWN: 'unknown', EMERGING: 'emerging', ESTABLISHED: 'established', VERIFIED: 'verified' };
+
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const id = e.target.value.trim().toLowerCase();
+                const agent = DEMO_AGENTS[id];
+                const card = document.getElementById('resultCard');
+                if (!agent) { card.style.display = 'none'; return; }
+                
+                card.style.display = 'block';
+                document.getElementById('agentName').textContent = id;
+                const badge = document.getElementById('tierBadge');
+                badge.textContent = agent.tier;
+                badge.className = 'tier-badge tier-' + tierColors[agent.tier];
+                document.getElementById('overallScore').textContent = agent.overall + '/100';
+                
+                document.getElementById('dimProv').textContent = agent.provenance;
+                document.getElementById('dimTrack').textContent = agent.track_record;
+                document.getElementById('dimPres').textContent = agent.presence;
+                document.getElementById('dimEndor').textContent = agent.endorsements;
+                document.getElementById('barProv').style.width = agent.provenance + '%';
+                document.getElementById('barTrack').style.width = agent.track_record + '%';
+                document.getElementById('barPres').style.width = agent.presence + '%';
+                document.getElementById('barEndor').style.width = agent.endorsements + '%';
+                
+                const certSec = document.getElementById('certSection');
+                if (agent.cert) {
+                    certSec.style.display = 'block';
+                    document.getElementById('certLevel').textContent = agent.cert.level;
+                    document.getElementById('certVectors').textContent = agent.cert.blocked + '/' + agent.cert.tested + ' blocked';
+                } else {
+                    certSec.style.display = 'none';
+                }
+                document.getElementById('evidenceHash').textContent = 'Evidence: 0x' + agent.evidence;
+            }
+        });
+
+        // Set demo stats
+        document.getElementById('totalScores').textContent = Object.keys(DEMO_AGENTS).length;
+        document.getElementById('totalCerts').textContent = Object.values(DEMO_AGENTS).filter(a => a.cert).length;
+    </script>
+</body>
+</html>

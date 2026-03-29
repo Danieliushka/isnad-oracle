@@ -61,6 +61,20 @@ isnad API (off-chain scoring engine)
 | Standard | ~25 | Tier 2 |
 | Advanced | 37+ | Tier 3 |
 
+### Infrastructure Integrity (TEE Attestation)
+
+5th scoring dimension — verifies WHERE and HOW an agent runs:
+
+| Score | Meaning |
+|-------|---------|
+| 0 | No TEE |
+| 20 | TEE claimed, unverifiable |
+| 50 | TEE verified (hardware attestation valid) |
+| 80 | Measurements match transparency log |
+| 100 | Reproducible build + transparency log confirmed |
+
+Supported: AWS Nitro Enclaves, Intel TDX, AMD SEV-SNP
+
 ## Quick Start
 
 ```bash

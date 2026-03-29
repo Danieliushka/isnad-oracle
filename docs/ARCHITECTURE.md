@@ -20,18 +20,32 @@ On-chain trust scoring oracle for AI agents on Solana. Bridges isnad's off-chain
 | `initialize` | Admin (once) | Creates OracleConfig, sets authority |
 | `set_authority` | Admin | Rotates oracle authority key |
 | `submit_score` | Authority | Creates/updates agent trust score |
+| `submit_attestation` | Authority | Updates TEE attestation data for agent |
 | `issue_cert` | Authority | Issues/updates certification badge |
 | `check_trust` | Anyone | Reads trust score, checks threshold |
 | `check_cert` | Anyone | Reads cert badge, checks validity |
 
-### Trust Dimensions (isnad v3 Scoring)
+### Trust Dimensions (isnad v4 Scoring — 5 Dimensions)
 
 | Dimension | Weight | Description |
 |-----------|--------|-------------|
-| Provenance | 30% | Code origin, dependencies, supply chain |
-| Track Record | 35% | Historical performance, reliability |
-| Presence | 20% | Platform presence, discoverability |
-| Endorsements | 15% | Third-party validations, reviews |
+| Provenance | 25% | Code origin, dependencies, supply chain |
+| Track Record | 30% | Historical performance, reliability |
+| Presence | 17% | Platform presence, discoverability |
+| Endorsements | 13% | Third-party validations, reviews |
+| Infrastructure | 15% | TEE attestation, build reproducibility, hardware integrity |
+
+### Infrastructure Integrity Scoring
+
+| Level | Score | Criteria |
+|-------|-------|----------|
+| No TEE | 0 | Agent not running in TEE |
+| TEE Claimed | 20 | TEE type reported but unverifiable |
+| TEE Verified | 50 | Attestation quote valid, hardware cert chain verified |
+| Log Match | 80 | Measurements match Sigstore transparency log |
+| Full Verified | 100 | Reproducible build confirmed + transparency log match |
+
+Supported TEE types: AWS Nitro Enclaves, Intel TDX, AMD SEV-SNP, Other
 
 ### Trust Tiers
 

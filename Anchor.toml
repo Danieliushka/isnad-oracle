@@ -8,11 +8,14 @@ skip-lint = false
 [programs.localnet]
 isnad_oracle = "BhG84286N1HTG6cRmASZVNQNtFd7K98BsBrhfjYc7H31"
 
+[programs.devnet]
+isnad_oracle = "BhG84286N1HTG6cRmASZVNQNtFd7K98BsBrhfjYc7H31"
+
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

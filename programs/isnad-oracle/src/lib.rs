@@ -135,6 +135,36 @@ pub mod isnad_oracle {
         Ok(meets)
     }
 
+    /// Submit or update TEE attestation data for an agent.
+    /// Records infrastructure integrity evidence on-chain.
+    pub fn submit_attestation(
+        ctx: Context<SubmitAttestation>,
+        agent_id: String,
+        tee_type: TeeType,           // Nitro, TDX, SevSnp, None
+        infra_score: u8,             // 0-100 infrastructure integrity score
+        attestation_hash: [u8; 32],  // SHA-256 of full attestation quote
+        build_hash: [u8; 32],        // SHA-256 of agent binary
+        measurements_match: bool,    // measurements match transparency log
+    ) -> Result<()> {
+        require!(infra_score <= 100, IsnadError::ScoreOutOfRange);
+        require!(agent_id.len() <= 64, IsnadError::AgentIdTooLong);
+
+        let score = &mut ctx.accounts.trust_score;
+        score.infra_score = infra_score;
+        score.infra_verified = infra_score >= 50;
+        score.attestation_hash = attestation_hash;
+        score.tee_type = tee_type;
+        score.build_hash = build_hash;
+        score.measurements_match = measurements_match;
+        score.attestation_at = Clock::get()?.unix_timestamp;
+
+        msg!(
+            "Attestation updated: {} = {} ({:?}) verified={}",
+            score.agent_id, infra_score, tee_type, score.infra_verified
+        );
+        Ok(())
+    }
+
     /// Check if an agent has a valid (non-expired) certification.
     pub fn check_cert(
         ctx: Context<CheckCert>,
@@ -228,6 +258,26 @@ pub struct IssueCert<'info> {
 
 #[derive(Accounts)]
 #[instruction(agent_id: String)]
+pub struct SubmitAttestation<'info> {
+    #[account(
+        mut,
+        seeds = [b"oracle_config"],
+        bump = config.bump,
+        has_one = authority,
+    )]
+    pub config: Account<'info, OracleConfig>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [b"trust_score", agent_id.as_bytes()],
+        bump = trust_score.bump,
+    )]
+    pub trust_score: Account<'info, TrustScore>,
+}
+
+#[derive(Accounts)]
+#[instruction(agent_id: String)]
 pub struct CheckTrust<'info> {
     #[account(
         seeds = [b"trust_score", agent_id.as_bytes()],
@@ -270,6 +320,13 @@ pub struct TrustScore {
     pub endorsements: u8,      // 0-100 (15% weight)
     pub tier: TrustTier,
     pub evidence_hash: [u8; 32],
+    pub infra_score: u8,           // 0-100 infrastructure integrity
+    pub infra_verified: bool,      // true if infra_score >= 50
+    pub tee_type: TeeType,         // TEE platform type
+    pub attestation_hash: [u8; 32], // SHA-256 of attestation quote
+    pub build_hash: [u8; 32],      // SHA-256 of agent binary
+    pub measurements_match: bool,  // build matches transparency log
+    pub attestation_at: i64,       // last attestation timestamp
     pub created_at: i64,
     pub updated_at: i64,
     pub bump: u8,
@@ -300,6 +357,15 @@ pub enum TrustTier {
     Emerging,    // 25-49
     Established, // 50-74
     Verified,    // 75-100
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq, InitSpace)]
+pub enum TeeType {
+    None,     // No TEE
+    Nitro,    // AWS Nitro Enclaves
+    Tdx,      // Intel TDX
+    SevSnp,   // AMD SEV-SNP
+    Other,    // Other/Unknown TEE
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq, InitSpace)]

@@ -275,6 +275,71 @@ describe("isnad-oracle", () => {
     }
   });
 
+  it("Submits TEE attestation", async () => {
+    const agentId = "gendolf";
+    const [scorePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("trust_score"), Buffer.from(agentId)],
+      program.programId
+    );
+    const attestationHash = Array(32).fill(0).map((_, i) => i + 100);
+    const buildHash = Array(32).fill(0).map((_, i) => i + 200);
+
+    await program.methods
+      .submitAttestation(
+        agentId,
+        { nitro: {} },
+        85,
+        attestationHash,
+        buildHash,
+        true,
+      )
+      .accounts({
+        config: configPda,
+        authority: authority.publicKey,
+        trustScore: scorePda,
+      })
+      .signers([authority])
+      .rpc();
+
+    const score = await program.account.trustScore.fetch(scorePda);
+    assert.equal(score.infraScore, 85);
+    assert.equal(score.infraVerified, true);
+    assert.deepEqual(score.teeType, { nitro: {} });
+    assert.equal(score.measurementsMatch, true);
+    assert.ok(score.attestationAt.toNumber() > 0);
+  });
+
+  it("Attestation with no TEE gives infra_verified=false", async () => {
+    const agentId = "gendolf";
+    const [scorePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("trust_score"), Buffer.from(agentId)],
+      program.programId
+    );
+    const zeroHash = Array(32).fill(0);
+
+    await program.methods
+      .submitAttestation(
+        agentId,
+        { none: {} },
+        20,
+        zeroHash,
+        zeroHash,
+        false,
+      )
+      .accounts({
+        config: configPda,
+        authority: authority.publicKey,
+        trustScore: scorePda,
+      })
+      .signers([authority])
+      .rpc();
+
+    const score = await program.account.trustScore.fetch(scorePda);
+    assert.equal(score.infraScore, 20);
+    assert.equal(score.infraVerified, false);
+    assert.deepEqual(score.teeType, { none: {} });
+  });
+
   it("Updates authority (admin only)", async () => {
     const newAuthority = Keypair.generate();
 

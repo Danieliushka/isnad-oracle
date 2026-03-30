@@ -113,7 +113,7 @@ async function main() {
   console.log("📖 Step 3: Reading combined on-chain score...\n");
   
   try {
-    const score = await program.account.trustScore.fetch(scorePda);
+    const score = await (program.account as any).trustScore.fetch(scorePda);
     
     console.log("   ┌─────────────────────────────────────────┐");
     console.log(`   │ Agent: ${score.agentId.padEnd(33)}│`);
